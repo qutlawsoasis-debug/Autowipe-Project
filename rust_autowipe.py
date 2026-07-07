@@ -903,6 +903,26 @@ def track_player_stats():
     settings = load_settings()
     ip = settings.get("rust_server", {}).get("ip")
     port = settings.get("rust_server", {}).get("port")
+    
+    # Fallback to Pterodactyl if IP/Port not configured
+    if not ip or not port:
+        p_cfg = settings.get("pterodactyl", {})
+        panel_url = str(p_cfg.get("panel_url") or "").strip()
+        server_id = str(p_cfg.get("server_id") or "").strip()
+        api_key = str(p_cfg.get("api_key") or "").strip()
+        if panel_url and server_id and api_key:
+            import requests
+            headers = {"Authorization": f"Bearer {api_key}", "Accept": "Application/vnd.pterodactyl.v1+json"}
+            try:
+                r = requests.get(f"{panel_url.rstrip('/')}/api/client/servers/{server_id}?include=allocations", headers=headers, timeout=10)
+                if r.status_code == 200:
+                    alloc_data = r.json().get("attributes", {}).get("relationships", {}).get("allocations", {}).get("data", [])
+                    if alloc_data:
+                        ip = alloc_data[0].get("attributes", {}).get("ip")
+                        port = alloc_data[0].get("attributes", {}).get("port")
+            except Exception:
+                pass
+                
     if not ip or not port:
         return
         
@@ -3436,6 +3456,7 @@ def rebuild_scheduler():
     
     # Add A2S player tracking job (every 10 minutes)
     try:
+        track_player_stats() # Run once immediately
         scheduler.add_job(
             track_player_stats,
             'interval',
