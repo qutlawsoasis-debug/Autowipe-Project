@@ -49,6 +49,9 @@ AUTH_FILE = DATA_DIR / "dashboard_auth.json"
 COMMITS_FILE = DATA_DIR / "commits.json"
 
 DEFAULT_SETTINGS = {
+    "license": {
+        "key": ""
+    },
     "discord": {
         "token": "",
         "channel_id": "",
@@ -153,13 +156,13 @@ DEFAULT_SETTINGS = {
         "post_time": "16:00",
         "channel_id": "",
         "templates": {
-            "monday": "💬 VEXON RUST — ОБСУЖДЕНИЕ ВЫХОДНЫХ\nКак прошли ваши выходные на сервере? Какие рейды запомнились больше всего?\n\n• Сражения: Расскажите о самых эпичных PvP-столкновениях и защите баз.\n• Рейды: Поделитесь историями об успешных захватах и скриншотами лучшего лута.\n• Обратная связь: Что вам понравилось или не понравилось в балансе?\n\nСайт: vexonrust.com\nПодключение: connect play.vexonrust.com",
-            "tuesday": "🪙 VEXON RUST — ЭКОНОМИКА И V-COINS\nНапоминаем про нашу экономическую систему V-Coins на серверах.\n\n• Заработок: Получайте V-Coins за проведенное время в игре и активное PvP.\n• Обмен: Обменивайте накопленную валюту на привилегии и ресурсы в Личном Кабинете.\n• Статистика: Следите за балансом и характеристиками вашего персонажа на сайте.\n\nЛичный кабинет: vexonrust.com\nПодключение: connect play.vexonrust.com",
-            "wednesday": "🏠 VEXON RUST — ЖИЗНЬ СЕРВЕРА\nПрошла половина текущего вайпа. Самое время оценить ситуацию на карте.\n\n• Базы: Делитесь скриншотами ваших построек и архитектурных решений.\n• Карта: Как обстоят дела с ключевыми точками? Кто доминирует в вашем секторе?\n• Планы: Готовы ли вы к финальным рейдам перед грядущим обновлением?\n\nСайт: vexonrust.com\nПодключение: connect play.vexonrust.com",
-            "thursday": "🗺️ VEXON RUST — ПЛАНЫ НА ВАЙП\nУже завтра начнется новый вайп. Пора выбрать карту для следующего цикла.\n\n• Голосование: Зайдите в специальный канал и выберите понравившийся вариант карты.\n• Подготовка: Продумайте стратегию старта и состав вашей команды.\n• Анонс: Точное время вайпа и технические детали будут опубликованы в Discord.\n\nСайт: vexonrust.com\nПодключение: connect play.vexonrust.com",
-            "friday": "🎁 VEXON RUST — РОЗЫГРЫШ ВЫХОДНЫХ\nВ честь начала выходных и нового вайпа мы запускаем розыгрыш бонусов!\n\n• Участие: Напишите ваш точный игровой никнейм в ветке обсуждения под этим постом.\n• Призы: Бонусные балансы на аккаунт в личном кабинете для быстрого старта.\n• Итоги: Победители будут выбраны случайным образом и объявлены завтра.\n\nСайт: vexonrust.com\nПодключение: connect play.vexonrust.com",
-            "saturday": "⚔️ VEXON RUST — ВРЕМЯ РЕЙДОВ\nВыходные в самом разгаре. Время для активных боевых действий на сервере.\n\n• PvP: Покажите свои лучшие моменты сражений и дуэлей.\n• Рейды: Поделитесь записями или скриншотами успешного подрыва чужих баз.\n• Общение: Координируйте действия в голосовых каналах и ищите напарников.\n\nСайт: vexonrust.com\nПодключение: connect play.vexonrust.com",
-            "sunday": "📊 VEXON RUST — ОБРАТНАЯ СВЯЗЬ\nМы постоянно работаем над улучшением геймплея и баланса на серверах.\n\n• Баланс: Предложите изменения для плагинов, лимитов команд или системы лута.\n• Идеи: Каких нововведений или ивентов вам не хватает на сервере?\n• Отзывы: Напишите ваше мнение о качестве работы администрации и хостинга.\n\nСайт: vexonrust.com\nПодключение: connect play.vexonrust.com"
+            "monday": "Пример поста: Обсуждение выходных на сервере...",
+            "tuesday": "Пример поста: Описание экономики и привилегий...",
+            "wednesday": "Пример поста: Жизнь сервера, базы и рейды...",
+            "thursday": "Пример поста: Голосование за следующую карту...",
+            "friday": "Пример поста: Розыгрыш бонусов в честь вайпа...",
+            "saturday": "Пример поста: Время для PvP и рейдов!",
+            "sunday": "Пример поста: Ждем ваши идеи и отзывы по серверу..."
         }
     },
     "frontend": {
@@ -174,15 +177,59 @@ log = logging.getLogger("rust_autowipe_allinone")
 
 app = Flask(__name__)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# KeyAuth License System
+# ─────────────────────────────────────────────────────────────────────────────
+LICENSE_VALID = False
+KEYAUTH_NAME = "AutoWipe"
+KEYAUTH_OWNERID = "ZpnLFNaIAx"
+
+def verify_license(license_key: str):
+    import requests, platform, sys, time
+    
+    if not license_key:
+        return False, "LICENSE KEY IS MISSING"
+        
+    try:
+        if platform.system() == "Linux":
+            with open("/etc/machine-id", "r") as f: hwid = f.read().strip()
+        else:
+            import socket; hwid = socket.gethostname()
+    except:
+        hwid = "UNKNOWN_HWID"
+        
+    log.info("Connecting to KeyAuth license server...")
+    try:
+        init_res = requests.post("https://keyauth.win/api/1.2/", data={
+            "type": "init", "ver": "1.0", "name": KEYAUTH_NAME, "ownerid": KEYAUTH_OWNERID
+        }, timeout=10).json()
+        
+        if not init_res.get("success"):
+            return False, f"Server Error: {init_res.get('message')}"
+            
+        sessionid = init_res.get("sessionid")
+        
+        lic_res = requests.post("https://keyauth.win/api/1.2/", data={
+            "type": "license", "key": license_key, "hwid": hwid, 
+            "sessionid": sessionid, "name": KEYAUTH_NAME, "ownerid": KEYAUTH_OWNERID
+        }, timeout=10).json()
+        
+        if not lic_res.get("success"):
+            return False, f"{lic_res.get('message')} (HWID: {hwid})"
+            
+        log.info("License verified successfully! Welcome.")
+        return True, "Success"
+    except Exception as e:
+        return False, f"Failed to contact KeyAuth: {e}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dashboard login/auth
 # Console command: admin.login <name>
 # ─────────────────────────────────────────────────────────────────────────────
-AUTH_SESSION_KEY = "dashboard_user"
+AUTH_SESSION_KEY = "dashboard_license_v2"
 AUTH_LAST_ACTIVE_KEY = "dashboard_last_active"
 AUTH_IDLE_SECONDS = 1800
-AUTH_PUBLIC_PATHS = {"/login", "/setup-password", "/favicon.ico"}
+AUTH_PUBLIC_PATHS = {"/auth", "/favicon.ico"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -194,37 +241,592 @@ AUTH_STYLE = ""
 
 LOGIN_HTML = """
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>RUST AUTOWIPE // LOGIN</title>
+  <title>RUST AUTOWIPE // AUTH</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body { background:#090c10; color:#f1f5f9; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
-    .box { padding:40px; background:#0f131c; border:1px solid rgba(255,255,255,0.06); border-radius:12px; max-width:360px; width:100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align:center; }
-    h2 { margin-top:0; font-size:20px; font-weight:600; letter-spacing:1px; color:#fff; margin-bottom:24px; }
-    input { width:100%; box-sizing:border-box; background:#161b22; border:1px solid rgba(255,255,255,0.1); color:#fff; padding:12px 16px; border-radius:6px; margin-bottom:16px; outline:none; font-size:14px; transition:border-color 0.2s; }
-    input:focus { border-color:#3b82f6; }
-    button { width:100%; background:#2563eb; color:#fff; border:none; padding:12px; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.2s; }
-    button:hover { background:#1d4ed8; }
-    .error { color:#ef4444; font-size:13px; margin-bottom:16px; background:rgba(239,68,68,0.1); padding:8px; border-radius:4px; }
-    .message { color:#10b981; font-size:13px; margin-bottom:16px; background:rgba(16,185,129,0.1); padding:8px; border-radius:4px; }
+    :root {
+      --bg: #000000;
+      --card-bg: rgba(10, 10, 10, 0.6);
+      --text-main: #ededed;
+      --text-muted: #888888;
+      --border: rgba(255, 255, 255, 0.14);
+      --border-hover: rgba(255, 255, 255, 0.3);
+      --accent: #ffffff;
+      --error: #e5484d;
+      --error-bg: rgba(229, 72, 77, 0.1);
+      --success: #30a46c;
+      --success-bg: rgba(48, 164, 108, 0.1);
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding-left: 12%;
+      min-height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* The Holographic Background */
+    #hologram {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      opacity: 0.3; /* Subtle */
+      pointer-events: none;
+    }
+
+    /* Mask to fade out the edges of the canvas */
+    .bg-mask {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(circle at center, transparent 20%, #000 80%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 360px;
+      padding: 20px;
+      z-index: 10;
+      position: relative;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 40px;
+      justify-content: center;
+    }
+
+    .logo-icon {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+      backdrop-filter: blur(10px);
+    }
+    
+    .logo-icon svg {
+      width: 12px;
+      height: 12px;
+      color: var(--text-main);
+    }
+
+    .logo-text {
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.8);
+    }
+
+    .header {
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .title {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--border-hover);
+      box-shadow: 0 0 0 1px var(--border-hover);
+      background: rgba(0,0,0,0.8);
+    }
+
+    input::placeholder { color: #444; }
+
+    button {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover {
+      background: #e0e0e0;
+    }
+
+    button:disabled {
+      background: #333;
+      color: #888;
+      cursor: not-allowed;
+    }
+
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .alert-error {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid rgba(229,72,77,0.2);
+    }
+
+    .alert-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(48,164,108,0.2);
+    }
+
+    .loader {
+      border: 2px solid rgba(0,0,0,0.1);
+      border-top: 2px solid #000;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+    }
+    
+    button:disabled .loader {
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top: 2px solid #888;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* --- PREMIUM HUD ELEMENTS --- */
+    #hud-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .hud-text {
+      position: absolute;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.25);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .hud-top-left { top: 30px; left: 40px; }
+    .hud-bottom-left { bottom: 30px; left: 40px; }
+    .hud-bottom-right { bottom: 30px; right: 40px; }
+    
+    .crosshair {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .crosshair.top-left { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+    .crosshair.top-right { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+    .crosshair.bottom-left { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+    .crosshair.bottom-right { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+    .ambient-glow {
+      position: absolute;
+      top: 50%;
+      left: 70%;
+      width: 100vw;
+      height: 100vh;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: -1;
+    }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>RUST AUTOWIPE // LOGIN</h2>
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
-    {% if message %}
-    <div class="message">{{ message }}</div>
-    {% endif %}
-    <form method="POST" action="/login">
-      <input type="text" name="username" placeholder="Username" value="{{ username }}" required autofocus>
-      <input type="password" name="password" placeholder="Password" required>
-      <button type="submit">SIGN IN</button>
-    </form>
+  <div class="ambient-glow"></div>
+  
+  <div id="hud-overlay">
+    <div class="hud-text hud-top-left">SYSTEM STATUS: <span style="color: rgba(255,255,255,0.7);">ONLINE</span></div>
+    <div class="hud-text hud-bottom-left">GOTHBREACH.AUTO_WIPE // v.2.4.1</div>
+    <div class="hud-text hud-bottom-right">NODE: MAIN-EU // LATENCY: 14ms</div>
+    <div class="crosshair top-left"></div>
+    <div class="crosshair top-right"></div>
+    <div class="crosshair bottom-left"></div>
+    <div class="crosshair bottom-right"></div>
   </div>
+
+  <div id="canvas-container" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; opacity:1;">
+    <canvas id="bg-trails" style="position:absolute; top:0; left:0;"></canvas>
+    <canvas id="fg-nodes" style="position:absolute; top:0; left:0;"></canvas>
+  </div>
+  <div class="bg-mask"></div>
+
+  <div class="container">
+    <div class="logo-container">
+      <div class="logo-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+      </div>
+      <span class="logo-text">Gothbreach Engine</span>
+    </div>
+
+    <div class="card">
+      <div class="header">
+        <h1 class="title">Sign in to Node</h1>
+        <p class="subtitle">Enter your license key to access the automation dashboard.</p>
+      </div>
+
+      {% if error %}
+      <div class="alert alert-error">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        {{ error }}
+      </div>
+      {% endif %}
+      {% if message %}
+      <div class="alert alert-success">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        {{ message }}
+      </div>
+      {% endif %}
+
+      <form id="loginForm" method="POST" action="/auth">
+        <div class="form-group">
+          <label for="license_key">License Key</label>
+          <input type="password" id="license_key" name="license_key" placeholder="xxxx-xxxx-xxxx" required autofocus autocomplete="off">
+        </div>
+        <button type="submit" id="submitBtn">Continue</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // --- PREMIUM SAAS 3D GLOBE ANIMATION (OFFSET RIGHT) ---
+    const canvasTrails = document.getElementById('bg-trails');
+    const ctxTrails = canvasTrails.getContext('2d');
+    const canvasNodes = document.getElementById('fg-nodes');
+    const ctxNodes = canvasNodes.getContext('2d');
+    
+    let cw, ch;
+    function resize() {
+      cw = window.innerWidth;
+      ch = window.innerHeight;
+      
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvasTrails.width = cw * dpr;
+      canvasTrails.height = ch * dpr;
+      canvasNodes.width = cw * dpr;
+      canvasNodes.height = ch * dpr;
+      
+      canvasTrails.style.width = cw + 'px';
+      canvasTrails.style.height = ch + 'px';
+      canvasNodes.style.width = cw + 'px';
+      canvasNodes.style.height = ch + 'px';
+      
+      // Scale contexts for crisp rendering on high-DPI (Retina) screens
+      ctxTrails.scale(dpr, dpr);
+      ctxNodes.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Globe setup - Fibonacci sphere
+    const DOTS = 1000;
+    const globePoints = [];
+    const phi = Math.PI * (3 - Math.sqrt(5)); // golden angle
+    
+    for (let i = 0; i < DOTS; i++) {
+        const y = 1 - (i / (DOTS - 1)) * 2;
+        const radius = Math.sqrt(1 - y * y);
+        const theta = phi * i;
+        globePoints.push({
+            x: Math.cos(theta) * radius,
+            y: y,
+            z: Math.sin(theta) * radius
+        });
+    }
+
+    // Active Nodes (Added more to make it dense and full)
+    const activeNodes = [
+        { label: 'AUTOWIPE CORE', index: 100 },
+        { label: 'RUST SERVER [EU]', index: 350 },
+        { label: 'DISCORD GATEWAY', index: 500 },
+        { label: 'DB SYNC', index: 650 },
+        { label: 'VOTE PROCESSOR', index: 50 },
+        { label: 'RCON PROXY', index: 220 },
+        { label: 'LOGGER', index: 800 },
+        { label: 'BACKUP NODE', index: 950 },
+        { label: 'RUST SERVER [US]', index: 410 },
+        { label: 'CDN CACHE', index: 75 }
+    ];
+
+    // Arcs (Data packets) between active nodes
+    const arcs = [];
+    function spawnArc() {
+        // Prevent massive packet spawn explosions when returning to an inactive browser tab
+        if (document.hidden || document.visibilityState === 'hidden') return;
+        if (arcs.length > 60) return;
+        
+        const fromIdx = Math.floor(Math.random() * activeNodes.length);
+        let toIdx = Math.floor(Math.random() * activeNodes.length);
+        while (toIdx === fromIdx) toIdx = Math.floor(Math.random() * activeNodes.length);
+        
+        arcs.push({
+            from: activeNodes[fromIdx].index,
+            to: activeNodes[toIdx].index,
+            progress: 0,
+            speed: 0.0035 + Math.random() * 0.006 // Slower, more elegant speed
+        });
+    }
+    setInterval(spawnArc, 150); // Shoot an arc very frequently
+    setInterval(spawnArc, 250);
+
+    // Rotation angles
+    let rotX = 0.35; // slight tilt down
+    let rotY = 0;
+    let time = 0;
+
+    function rotate3D(p, rx, ry) {
+        // Rotate around X axis
+        let y1 = p.y * Math.cos(rx) - p.z * Math.sin(rx);
+        let z1 = p.y * Math.sin(rx) + p.z * Math.cos(rx);
+        // Rotate around Y axis
+        let x2 = p.x * Math.cos(ry) + z1 * Math.sin(ry);
+        let z2 = -p.x * Math.sin(ry) + z1 * Math.cos(ry);
+        
+        return { x: x2, y: y1, z: z2 };
+    }
+
+    function draw() {
+        rotY += 0.0015;
+        time += 0.005;
+        rotX = 0.35 + Math.sin(time) * 0.15; // Slowly tilt up and down for a stronger 3D feel
+
+        ctxTrails.clearRect(0, 0, cw, ch);
+        ctxNodes.clearRect(0, 0, cw, ch);
+        
+        // Offset globe to the right!
+        const cx = cw * 0.75; 
+        const cy = ch / 2;
+        // Make globe smaller so it fits nicely
+        const GLOBE_RADIUS = Math.min(cw, ch) * 0.45;
+        
+        // Draw dots on background canvas
+        globePoints.forEach((p) => {
+            const rp = rotate3D(p, rotX, rotY);
+            
+            const screenX = cx + rp.x * GLOBE_RADIUS;
+            const screenY = cy + rp.y * GLOBE_RADIUS;
+            
+            // Map z from [-1, 1] to alpha and size to give a massive 3D depth effect
+            let zNorm = (rp.z + 1) / 2;
+            let alpha = Math.max(0.35, zNorm * 1.2); // Significantly brighter
+            let dotSize = 0.6 + zNorm * 1.8; // Larger dots
+            
+            ctxTrails.beginPath();
+            ctxTrails.arc(screenX, screenY, dotSize, 0, Math.PI*2);
+            ctxTrails.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctxTrails.fill();
+        });
+
+        // Calculate mapped screen coords for active nodes
+        const activeCoords = {};
+        activeNodes.forEach(an => {
+            const p = globePoints[an.index];
+            const rp = rotate3D(p, rotX, rotY);
+            activeCoords[an.index] = {
+                x: cx + rp.x * GLOBE_RADIUS,
+                y: cy + rp.y * GLOBE_RADIUS,
+                z: rp.z
+            };
+            
+            // Nodes are fully bright on the front half, and slowly fade on the back half
+            let nodeAlpha = 1;
+            if (rp.z < 0) {
+                nodeAlpha = Math.max(0.4, 1 + rp.z); // Keep very visible even on back (minimum 40%)
+            }
+            
+            // Glow Dot
+            ctxNodes.beginPath();
+            ctxNodes.arc(activeCoords[an.index].x, activeCoords[an.index].y, 3.5, 0, Math.PI*2);
+            ctxNodes.fillStyle = `rgba(255, 255, 255, ${nodeAlpha})`;
+            ctxNodes.shadowBlur = 15 * nodeAlpha;
+            ctxNodes.shadowColor = '#fff';
+            ctxNodes.fill();
+            ctxNodes.shadowBlur = 0; // reset
+            
+            // Text Label - Use Math.round to snap coordinates to physical pixels, eliminating text jitter entirely
+            ctxNodes.fillStyle = `rgba(255, 255, 255, ${nodeAlpha})`;
+            ctxNodes.font = '600 12px "Inter", sans-serif';
+            ctxNodes.letterSpacing = '1px';
+            ctxNodes.fillText(an.label, Math.round(activeCoords[an.index].x + 14), Math.round(activeCoords[an.index].y + 4));
+        });
+
+        // Draw Arcs (Data Packets)
+        for (let i = arcs.length - 1; i >= 0; i--) {
+            let arc = arcs[i];
+            arc.progress += arc.speed;
+            if (arc.progress > 1) {
+                arcs.splice(i, 1);
+                continue;
+            }
+
+            const p1 = activeCoords[arc.from];
+            const p2 = activeCoords[arc.to];
+            
+            // Calculate average z-depth for this arc
+            const avgZ = (p1.z + p2.z) / 2;
+            let arcAlpha = 1;
+            if (avgZ < 0) {
+                arcAlpha = Math.max(0.1, 1 + avgZ);
+            }
+            
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+            
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            const nx = -dy / dist;
+            const ny = dx / dist;
+            
+            // Push control point out based on distance to make a beautiful arc over the globe
+            const cpX = midX + nx * dist * 0.35;
+            const cpY = midY + ny * dist * 0.35;
+            
+            // Draw continuous line for trail to avoid dashed look
+            ctxNodes.beginPath();
+            const startT = Math.max(0, arc.progress - 0.2); // Trail length is 0.2
+            
+            for(let t = startT; t <= arc.progress; t += 0.01) {
+                const tx = Math.pow(1-t, 2)*p1.x + 2*(1-t)*t*cpX + Math.pow(t, 2)*p2.x;
+                const ty = Math.pow(1-t, 2)*p1.y + 2*(1-t)*t*cpY + Math.pow(t, 2)*p2.y;
+                if (t === startT) ctxNodes.moveTo(tx, ty);
+                else ctxNodes.lineTo(tx, ty);
+            }
+            
+            // Draw glowing trail
+            const gradient = ctxNodes.createLinearGradient(
+                Math.pow(1-startT, 2)*p1.x + 2*(1-startT)*startT*cpX + Math.pow(startT, 2)*p2.x,
+                Math.pow(1-startT, 2)*p1.y + 2*(1-startT)*startT*cpY + Math.pow(startT, 2)*p2.y,
+                Math.pow(1-arc.progress, 2)*p1.x + 2*(1-arc.progress)*arc.progress*cpX + Math.pow(arc.progress, 2)*p2.x,
+                Math.pow(1-arc.progress, 2)*p1.y + 2*(1-arc.progress)*arc.progress*cpY + Math.pow(arc.progress, 2)*p2.y
+            );
+            gradient.addColorStop(0, `rgba(255, 255, 255, 0)`);
+            gradient.addColorStop(1, `rgba(255, 255, 255, ${arcAlpha})`);
+            
+            ctxNodes.strokeStyle = gradient;
+            ctxNodes.lineWidth = 2.5;
+            ctxNodes.shadowBlur = 10 * arcAlpha;
+            ctxNodes.shadowColor = '#fff';
+            ctxNodes.stroke();
+            ctxNodes.shadowBlur = 0;
+            
+            // Draw bright head of comet
+            const headX = Math.pow(1-arc.progress, 2)*p1.x + 2*(1-arc.progress)*arc.progress*cpX + Math.pow(arc.progress, 2)*p2.x;
+            const headY = Math.pow(1-arc.progress, 2)*p1.y + 2*(1-arc.progress)*arc.progress*cpY + Math.pow(arc.progress, 2)*p2.y;
+            
+            ctxNodes.beginPath();
+            ctxNodes.arc(headX, headY, 2.5, 0, Math.PI*2);
+            ctxNodes.fillStyle = `rgba(255, 255, 255, ${arcAlpha})`;
+            ctxNodes.shadowBlur = 15 * arcAlpha;
+            ctxNodes.shadowColor = '#fff';
+            ctxNodes.fill();
+            ctxNodes.shadowBlur = 0;
+        }
+
+        requestAnimationFrame(draw);
+    }
+    draw();
+
+    // --- FORM LOGIC ---
+    const keyInput = document.getElementById('license_key');
+    const form = document.getElementById('loginForm');
+    const btn = document.getElementById('submitBtn');
+    const hasError = {{ 'true' if error else 'false' }};
+    
+    form.addEventListener('submit', () => {
+        if(keyInput.value.trim().length > 0) {
+            localStorage.setItem('autowipe_license', keyInput.value.trim());
+            btn.innerHTML = '<div class="loader"></div> Authenticating...';
+            btn.disabled = true;
+            keyInput.readOnly = true;
+        }
+    });
+    
+    const savedKey = localStorage.getItem('autowipe_license');
+    if (savedKey && !hasError) {
+        keyInput.value = savedKey;
+        keyInput.readOnly = true;
+        btn.innerHTML = '<div class="loader"></div> Authenticating...';
+        btn.disabled = true;
+        setTimeout(() => { form.submit(); }, 1500);
+    }
+  </script>
 </body>
 </html>
 """
@@ -284,6 +886,29 @@ def download_frontend():
     import shutil
     import sys
     import time
+    
+    frontend_dir = Path(BASE_DIR) / "dashboard_data" / "frontend_cache"
+    local_zip = Path(BASE_DIR) / "frontend.zip"
+    
+    if local_zip.exists():
+        try:
+            log.info("Found local frontend.zip, extracting it directly instead of downloading...")
+            with open(local_zip, "rb") as f:
+                content = bytearray(f.read())
+                
+            if frontend_dir.exists():
+                shutil.rmtree(frontend_dir)
+            frontend_dir.mkdir(parents=True, exist_ok=True)
+            
+            with zipfile.ZipFile(io.BytesIO(content)) as z:
+                # Our local frontend.zip was made from `frontend_static_unzipped`
+                # So we extract it directly into frontend_dir
+                z.extractall(frontend_dir)
+            log.info("Frontend updated from local zip successfully!")
+            return
+        except Exception as e:
+            log.error(f"Failed to extract local frontend.zip: {e}")
+            
     url = f"https://github.com/qutlawsoasis-debug/Autowipe-Project/archive/refs/heads/gh-pages.zip?t={int(time.time())}"
     try:
         log.info("Downloading Next.js frontend from GitHub...")
@@ -308,12 +933,10 @@ def download_frontend():
             sys.stdout.flush()
             
             log.info("Extracting frontend files...")
-            extract_to = Path(BASE_DIR) / "dashboard_data"
             with zipfile.ZipFile(io.BytesIO(content)) as z:
                 z.extractall(extract_to)
             
             extracted_dir = extract_to / "Autowipe-Project-gh-pages"
-            frontend_dir = Path(BASE_DIR) / "dashboard_data" / "frontend_cache"
             if frontend_dir.exists():
                 shutil.rmtree(frontend_dir)
             extracted_dir.rename(frontend_dir)
@@ -411,10 +1034,7 @@ def verify_password(password: str, record: dict) -> bool:
         return False
 
 def is_logged_in() -> bool:
-    user = session.get(AUTH_SESSION_KEY)
-    if not user: return False
-    auth = load_auth_state()
-    return normalize_login(user) in auth.get("users", {})
+    return bool(session.get(AUTH_SESSION_KEY))
 
 def create_one_time_login(username: str):
     login = normalize_login(username)
@@ -459,7 +1079,7 @@ def start_admin_console_thread() -> None:
                 time.sleep(2)
     threading.Thread(target=loop, daemon=True, name="admin-console-login").start()
 
-app.secret_key = load_auth_state().get("secret_key")
+app.secret_key = __import__("os").urandom(32).hex()
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -516,8 +1136,11 @@ def save_settings(data: Dict[str, Any]) -> None:
     save_json(SETTINGS_FILE, data)
 
 
+status_lock = threading.Lock()
+
 def update_gen_status(**kwargs):
-    current = load_json(GEN_STATUS_FILE, {
+    with status_lock:
+        current = load_json(GEN_STATUS_FILE, {
         "running": False,
         "stage": "idle",
         "message": "Ожидание",
@@ -530,31 +1153,33 @@ def update_gen_status(**kwargs):
         "error": None,
         "active_generations": 0,
     })
-    current.update(kwargs)
-    current["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    save_json(GEN_STATUS_FILE, current)
+        current.update(kwargs)
+        current["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        save_json(GEN_STATUS_FILE, current)
 
 
 def append_gen_output(line: str):
-    status = load_json(GEN_STATUS_FILE, {
+    with status_lock:
+        status = load_json(GEN_STATUS_FILE, {
         "running": False,
         "stage": "idle",
         "message": "Ожидание",
         "last_output": [],
         "active_generations": 0,
     })
-    lines = status.get("last_output", [])
-    lines.append(line)
-    status["last_output"] = lines[-80:]
-    status["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    save_json(GEN_STATUS_FILE, status)
+        lines = status.get("last_output", [])
+        lines.append(line)
+        status["last_output"] = lines[-80:]
+        status["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        save_json(GEN_STATUS_FILE, status)
 
 
 def now_ts() -> float:
     return time.time()
 
 def update_runtime_status(**kwargs):
-    current = load_json(RUNTIME_STATUS_FILE, {
+    with status_lock:
+        current = load_json(RUNTIME_STATUS_FILE, {
         "discord_ready": False,
         "worker_running": False,
         "message": "Ожидание",
@@ -562,12 +1187,13 @@ def update_runtime_status(**kwargs):
         "updated_at": None,
         "log": [],
     })
-    current.update(kwargs)
-    current["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    save_json(RUNTIME_STATUS_FILE, current)
+        current.update(kwargs)
+        current["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        save_json(RUNTIME_STATUS_FILE, current)
 
 def append_runtime_log(line: str):
-    current = load_json(RUNTIME_STATUS_FILE, {
+    with status_lock:
+        current = load_json(RUNTIME_STATUS_FILE, {
         "discord_ready": False,
         "worker_running": False,
         "message": "Ожидание",
@@ -688,10 +1314,28 @@ def to_media_url(path: Optional[str]) -> str:
 
 
 def pick_preview_path(item: dict) -> str:
-    for key in ("image_path", "icons_path", "thumbnail_path"):
+    # Prioritize 'image_path' (full map) over 'icons_path' since user wants bigger images
+    for key in ("image_path", "thumbnail_path", "icons_path"):
         val = item.get(key)
         if val and Path(val).exists():
             return str(val)
+            
+    # Fallback for existing maps where image_path might be missing or wrong extension
+    map_path = item.get("map_path")
+    if map_path:
+        mp = Path(map_path)
+        if mp.exists() and mp.parent.exists():
+            for ext in (".png", ".jpg", ".jpeg"):
+                cand = mp.parent / f"{mp.stem}_icons{ext}"
+                if cand.exists():
+                    return str(cand)
+            for ext in (".jpg", ".jpeg", ".png"):
+                candidate = mp.with_suffix(ext)
+                if candidate.exists():
+                    return str(candidate)
+                for img in mp.parent.glob(f"*{ext}"):
+                    return str(img)
+                    
     return ""
 
 
@@ -787,9 +1431,34 @@ def scan_disk_maps(download_dir: Path) -> Dict[str, dict]:
             continue
         stem = map_file.stem
         parent = map_file.parent
-        icons = parent / f"{stem}_icons.png"
-        thumb = parent / f"{stem}_thumbnail.png"
-        image = parent / f"{stem}.png"
+        
+        all_images = list(parent.glob("*.jpg")) + list(parent.glob("*.png")) + list(parent.glob("*.jpeg"))
+        
+        icons = None
+        thumb = None
+        image = None
+        
+        if all_images:
+            # Try to match by name
+            for img in all_images:
+                lname = img.name.lower()
+                if "icon" in lname:
+                    icons = img
+                elif "thumb" in lname:
+                    thumb = img
+                elif "image" in lname or str(stem).lower() in lname:
+                    image = img
+            
+            # Fallbacks if strict matching didn't fill them
+            if not image and all_images:
+                # usually the largest file is the main image, but let's just pick one
+                image = all_images[0]
+            if not icons and len(all_images) > 1:
+                icons = all_images[1]
+            elif not icons and all_images:
+                icons = all_images[0]
+            if not thumb and all_images:
+                thumb = all_images[-1]
         seed = None
         size = None
         map_url = None
@@ -815,9 +1484,9 @@ def scan_disk_maps(download_dir: Path) -> Dict[str, dict]:
             "page_url": page_url,
             "map_id": map_id,
             "map_path": str(map_file.resolve()),
-            "image_path": str(image) if image.exists() else None,
-            "icons_path": str(icons) if icons.exists() else None,
-            "thumbnail_path": str(thumb) if thumb.exists() else None,
+            "image_path": str(image) if image else None,
+            "icons_path": str(icons) if icons else None,
+            "thumbnail_path": str(thumb) if thumb else None,
             "created_at": map_file.stat().st_mtime,
             "status": "ready",
             "message_id": None,
@@ -920,6 +1589,17 @@ def track_player_stats():
                     if alloc_data:
                         ip = alloc_data[0].get("attributes", {}).get("ip")
                         port = alloc_data[0].get("attributes", {}).get("port")
+                        
+                        # Smart IP Resolution: Pterodactyl often binds to 0.0.0.0 which breaks A2S query
+                        if ip in ("0.0.0.0", "127.0.0.1", ""):
+                            from urllib.parse import urlparse
+                            import socket
+                            panel_host = urlparse(panel_url).hostname
+                            if panel_host:
+                                try:
+                                    ip = socket.gethostbyname(panel_host)
+                                except Exception:
+                                    pass
             except Exception:
                 pass
                 
@@ -927,7 +1607,14 @@ def track_player_stats():
         return
         
     stats = load_json(PLAYER_STATS_FILE, {"history": [], "current_players": 0, "max_players": 0})
-    result = a2s_info(ip, port)
+    try:
+        result = a2s_info(ip, port)
+    except Exception as e:
+        append_runtime_log(f"a2s_info error: {e}")
+        result = None
+        
+    if not result:
+        append_runtime_log(f"A2S query failed for {ip}:{port}")
     
     from datetime import datetime
     now_str = datetime.now().strftime("%H:%M")
@@ -1246,16 +1933,23 @@ class RustMapsCLI:
         if not map_path:
             raise RuntimeError("Generated .map file not found")
 
-        new_pngs = list(sorted(run_dir.rglob("*.png"), key=lambda x: x.stat().st_mtime, reverse=True))
+        # Support both PNG and JPG formats for map images
+        new_imgs = []
+        for ext in ("*.png", "*.jpg", "*.jpeg"):
+            new_imgs.extend(run_dir.rglob(ext))
+        new_imgs = list(sorted(new_imgs, key=lambda x: x.stat().st_mtime, reverse=True))
+        
         image_path = None
         icons_path = None
         thumbnail_path = None
-        for p in new_pngs:
+        for p in new_imgs:
             n = p.name.lower()
-            if n.endswith("_icons.png") and not icons_path:
-                icons_path = str(p)
-            elif n.endswith("_thumbnail.png") and not thumbnail_path:
-                thumbnail_path = str(p)
+            if n.endswith("_icons.png") or n.endswith("_icons.jpg"):
+                if not icons_path:
+                    icons_path = str(p)
+            elif n.endswith("_thumbnail.png") or n.endswith("_thumbnail.jpg"):
+                if not thumbnail_path:
+                    thumbnail_path = str(p)
             elif not image_path:
                 image_path = str(p)
 
@@ -2310,7 +3004,7 @@ async def publish_vote(channel: discord.TextChannel):
             "message_ids": {},
             "intro_message_id": None,
             "user_votes": {},
-            "started_at": None,
+            "started_at": now_ts(),
             "duration": int(load_settings()["schedule"].get("vote_duration_minutes", 60)) * 60,
             "emoji": load_settings()["discord"]["reaction_emoji"],
         }
@@ -2332,13 +3026,14 @@ async def publish_vote(channel: discord.TextChannel):
         for idx, m in enumerate(chosen, start=1):
             desc = f"**Map Seed**\n`{m.get('seed')}`\n\n**Map Size**\n`{m.get('size')}`"
             if m.get("map_url"):
-                desc += f"\n\n**Map URL**\n{m['map_url']}"
+                desc += f"\n\n**Map URL**\n<{m['map_url']}>"
 
-            embed = discord.Embed(title=f"Map #{idx}", description=desc, color=discord.Color.blue())
+            embed = discord.Embed(description=desc, color=discord.Color.blue())
             img = m.get("icons_path") or m.get("image_path") or m.get("thumbnail_path")
             file = None
             if img and Path(img).exists():
-                fname = f"map_{idx}.png"
+                ext = Path(img).suffix or ".jpg"
+                fname = f"map_{idx}{ext}"
                 file = discord.File(img, filename=fname)
                 embed.set_image(url=f"attachment://{fname}")
 
@@ -2356,9 +3051,12 @@ async def publish_vote(channel: discord.TextChannel):
                     item["message_id"] = msg.id
             save_json(POOL_STATE_FILE, latest)
 
+        # Refresh state to the latest before updating last_vote_target_at
+        state = ensure_state()
         if state.get("scheduled_wipe_target_at"):
             state["last_vote_target_at"] = state.get("scheduled_wipe_target_at")
-        save_json(POOL_STATE_FILE, state)
+            save_json(POOL_STATE_FILE, state)
+            
         log.info("Vote published from pool.")
         append_runtime_log(f"vote published | candidates=3")
         return True, "Голосование опубликовано"
@@ -2501,16 +3199,17 @@ async def process_vote_if_expired(channel: discord.TextChannel):
             winner_embed.add_field(name="Map Size", value=str(winner.get("size") or "—"), inline=False)
             summary = []
             for idx, c in enumerate(candidates, start=1):
-                summary.append(f"Map #{idx}: {counts.get(c['map_path'], 0)} голос(ов)")
+                summary.append(f"Карта (Seed: {c.get('seed')}): {counts.get(c['map_path'], 0)} голос(ов)")
             if len(leaders) > 1:
                 summary.append("Ничья по голосам — победитель выбран случайно.")
             winner_embed.add_field(name="Итоги", value="\n".join(summary), inline=False)
             if winner.get("map_url"):
-                winner_embed.add_field(name="Winning Map URL", value=winner["map_url"], inline=False)
+                winner_embed.add_field(name="Winning Map URL", value=f"<{winner['map_url']}>", inline=False)
 
             img = winner.get("icons_path") or winner.get("image_path") or winner.get("thumbnail_path")
             if img and Path(img).exists():
-                fname = "winner_map.png"
+                ext = Path(img).suffix or ".jpg"
+                fname = f"winner_map{ext}"
                 file = discord.File(img, filename=fname)
                 winner_embed.set_image(url=f"attachment://{fname}")
                 await msg.edit(embed=winner_embed, attachments=[file])
@@ -3001,13 +3700,13 @@ async def send_smm_post_direct(day_name: str, smm_cfg: dict) -> None:
 
     if not post_desc:
         fallbacks = {
-            "monday": "Как прошли ваши выходные на сервере? Какие рейды запомнились больше всего?\nДелитесь своими историями и скриншотами лучшего лута в ветке ниже!",
-            "tuesday": "Напоминаем про нашу уникальную экономическую систему V-Coins!\nЗарабатывайте монеты за игровое время и PvP в Личном Кабинете на vexonrust.com.",
-            "wednesday": "Среда — экватор вайпа! Расскажите, как обстоят дела с вашей базой?\nЕсть ли новые союзники или враги на карте? Пишите в комментариях ниже!",
-            "thursday": "Уже завтра выходные и новый промежуточный вайп!\nПора поделиться планами: какую карту вы бы хотели видеть на следующую неделю?",
-            "friday": "Запускаем наш еженедельный розыгрыш бонусов в честь выходных!\nНапишите ваш никнейм в ветке обсуждения ниже для участия.",
-            "saturday": "Суббота — время для крупномасштабного PvP и рейдов!\nДелитесь скриншотами своих побед и рейдов прямо в этой ветке!",
-            "sunday": "Мы стремимся сделать сервер лучше. Если у вас есть предложения по балансу или плагинам, напишите их в ветке ниже!"
+            "monday": "Пример поста: Как прошли выходные?",
+            "tuesday": "Пример поста: Наша экономика",
+            "wednesday": "Пример поста: Жизнь сервера",
+            "thursday": "Пример поста: Планы на вайп",
+            "friday": "Пример поста: Розыгрыш",
+            "saturday": "Пример поста: Рейды и PvP",
+            "sunday": "Пример поста: Обратная связь"
         }
         post_desc = fallbacks.get(day_name, "Новый пост!")
 
@@ -4166,11 +4865,25 @@ def build_dashboard_payload() -> dict:
                 continue
             votes = sum(1 for v in vote.get("user_votes", {}).values() if v == path)
             max_votes = max(max_votes, votes)
+            
+            badges = [m.get("status", "ready")]
+            if m.get("status") == "broken":
+                badges.append("broken")
+                
             vote_maps.append({
+                "id": m.get("map_id") or path,
                 "seed": m.get("seed"),
                 "size": m.get("size"),
-                "votes": votes,
+                "status": m.get("status", "ready"),
+                "badges": badges,
+                "created_at": m.get("created_at") or m.get("downloaded_at") or "",
+                "map_url": m.get("map_url"),
+                "page_url": m.get("page_url"),
+                "map_path": path,
+                "download_url": to_media_url(path) if path else "",
+                "exists": bool(path and Path(path).exists()),
                 "preview": to_media_url(pick_preview_path(m)),
+                "votes": votes,
             })
         for vm in vote_maps:
             vm["is_leader"] = vm["votes"] == max_votes and max_votes > 0
@@ -4179,9 +4892,8 @@ def build_dashboard_payload() -> dict:
             "published_at": vote.get("published_at") or vote.get("started_at"),
             "mode": settings.get("schedule", {}).get("vote_close_mode", "after_first_vote"),
             "time_remaining": 0,
-            "maps": vote_maps,
+            "candidates": vote_maps,
         }
-
     # После окончания голосования победившая карта остаётся в блоке "Текущее голосование"
     # до успешного вайпа. Это даёт визуальное подтверждение, какая карта ожидает запуска.
     if not vote_payload and state.get("selected_map_path"):
@@ -4193,9 +4905,18 @@ def build_dashboard_payload() -> dict:
                 "published_at": state.get("selected_at"),
                 "mode": "winner_waiting_wipe",
                 "time_remaining": 0,
-                "maps": [{
+                "candidates": [{
+                    "id": selected_item.get("map_id") or selected_item.get("map_path"),
                     "seed": selected_item.get("seed"),
                     "size": selected_item.get("size"),
+                    "status": selected_item.get("status", "ready"),
+                    "badges": [selected_item.get("status", "ready")],
+                    "created_at": selected_item.get("created_at") or selected_item.get("downloaded_at") or "",
+                    "map_url": selected_item.get("map_url"),
+                    "page_url": selected_item.get("page_url"),
+                    "map_path": selected_item.get("map_path"),
+                    "download_url": to_media_url(selected_item.get("map_path")) if selected_item.get("map_path") else "",
+                    "exists": bool(selected_item.get("map_path") and Path(selected_item.get("map_path")).exists()),
                     "votes": None,
                     "preview": to_media_url(pick_preview_path(selected_item)),
                     "is_leader": True,
@@ -4243,6 +4964,21 @@ def build_dashboard_payload() -> dict:
         generation["message"] = f"Пул готов: {actual_ready}/{generation['target']}"
 
     direct_mode, direct_target, direct_mins_left = get_publishable_wipe_slot(settings)
+    # Only expose requested_at to frontend if it's a true emergency wipe (target is close to request)
+    req_at = state.get("scheduled_wipe_requested_at")
+    target_at_iso = state.get("scheduled_wipe_target_at")
+    is_emergency = False
+    if req_at and target_at_iso:
+        try:
+            from datetime import datetime, timezone
+            r_dt = datetime.fromisoformat(req_at.replace("Z", "+00:00"))
+            t_dt = datetime.fromisoformat(target_at_iso)
+            # If target is within 5 minutes of request, it was a manual force wipe
+            if abs((t_dt - r_dt).total_seconds()) < 300:
+                is_emergency = True
+        except:
+            pass
+
     return {
         "settings": settings,
         "ready_maps": actual_ready,
@@ -4256,7 +4992,7 @@ def build_dashboard_payload() -> dict:
         "integrations": integrations,
         "schedule_preview": compute_schedule_preview(settings),
         "scheduled_wipe_mode": state.get("scheduled_wipe_mode"),
-        "scheduled_wipe_requested_at": state.get("scheduled_wipe_requested_at"),
+        "scheduled_wipe_requested_at": req_at if is_emergency else None,
         "wipe_error": state.get("wipe_error"),
         "wipe_history": get_wipe_history(),
         "player_stats": load_json(PLAYER_STATS_FILE, {"history": [], "current_players": 0, "max_players": 0}),
@@ -4264,7 +5000,7 @@ def build_dashboard_payload() -> dict:
 
 
 
-def can_publish_vote_now() -> tuple[bool, str]:
+def can_publish_vote_now(ignore_consumed_window: bool = False) -> tuple[bool, str]:
     state = reconcile_pool_state()
     if state.get("vote"):
         return False, "Голосование уже активно"
@@ -4275,10 +5011,11 @@ def can_publish_vote_now() -> tuple[bool, str]:
     target_iso = state.get("scheduled_wipe_target_at")
     consumed_iso = state.get("vote_window_consumed_target_at")
     last_vote_target_iso = state.get("last_vote_target_at")
-    if target_iso and consumed_iso and target_iso == consumed_iso:
-        return False, "Для этого окна вайпа голосование уже было завершено или закрыто"
-    if target_iso and last_vote_target_iso and target_iso == last_vote_target_iso:
-        return False, "Для этого окна вайпа голосование уже публиковалось"
+    if not ignore_consumed_window:
+        if target_iso and consumed_iso and target_iso == consumed_iso:
+            return False, "Для этого окна вайпа голосование уже было завершено или закрыто"
+        if target_iso and last_vote_target_iso and target_iso == last_vote_target_iso:
+            return False, "Для этого окна вайпа голосование уже публиковалось"
     candidates = votable_ready_maps(state)
     if len(candidates) < 3:
         return False, f"Недостаточно готовых карт для голосования: {len(candidates)}/3"
@@ -4418,9 +5155,6 @@ def cleanup_broken_and_orphan_maps() -> int:
 
 @app.before_request
 def require_dashboard_login():
-    # Bypass authorization for local/host triggers
-    if request.remote_addr in ["127.0.0.1", "152.53.147.213"]:
-        return None
     path = request.path or "/"
     if path in AUTH_PUBLIC_PATHS or path.startswith("/static/") or path.startswith("/public/"):
         return None
@@ -4429,89 +5163,50 @@ def require_dashboard_login():
         session.clear()
         if path.startswith("/api/"):
             return jsonify({"ok": False, "message": "Login required"}), 401
-        return redirect("/login")
+        return redirect("/auth")
 
-    now = time.time()
-    last_active = float(session.get(AUTH_LAST_ACTIVE_KEY) or 0)
-    if last_active and now - last_active > AUTH_IDLE_SECONDS:
-        user = session.get(AUTH_SESSION_KEY)
-        session.clear()
-        try:
-            append_runtime_log(f"dashboard auto logout | user={user} | idle>{AUTH_IDLE_SECONDS}s")
-        except Exception:
-            pass
-        if path.startswith("/api/"):
-            return jsonify({"ok": False, "message": "Session expired"}), 401
-        return redirect("/login?message=Сессия истекла: 60 секунд бездействия.")
-
-    session[AUTH_LAST_ACTIVE_KEY] = now
+    # Update last active timestamp for record keeping
+    session[AUTH_LAST_ACTIVE_KEY] = time.time()
     session.permanent = False
     return None
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/auth", methods=["GET", "POST"])
 def login_route():
     if request.method == "GET":
-        return render_frontend("login", "login_url", LOGIN_HTML, error=None, message=request.args.get("message"), username="")
-    username = normalize_login(request.form.get("username", ""))
-    password_raw = request.form.get("password", "")
-    password_trim = password_raw.strip()
-    auth = load_auth_state()
-    if not username or not password_trim:
-        return render_frontend("login", "login_url", LOGIN_HTML, error="Введите логин и пароль.", message=None, username=username), 400
-
-    user_record = auth.get("users", {}).get(username)
-    if user_record and (verify_password(password_raw, user_record.get("password", {})) or verify_password(password_trim, user_record.get("password", {}))):
+        return render_template_string(LOGIN_HTML, error=None, message=request.args.get("message"))
+    
+    # Handle POST (License verification)
+    license_key = request.form.get("license_key", "").strip()
+    if not license_key:
+        return render_template_string(LOGIN_HTML, error="Пожалуйста, введите лицензионный ключ.", message=None), 400
+    
+    # Check if license is valid
+    valid, msg = verify_license(license_key)
+    if valid:
+        settings = load_settings()
+        settings.setdefault("license", {})["key"] = license_key
+        save_settings(settings)
+        
+        global LICENSE_VALID
+        if not LICENSE_VALID:
+            LICENSE_VALID = True
+            rebuild_scheduler()
+            start_discord_background()
+            
         session.clear()
-        session[AUTH_SESSION_KEY] = username
+        session[AUTH_SESSION_KEY] = "admin"
         session[AUTH_LAST_ACTIVE_KEY] = time.time()
         session.permanent = False
-        append_runtime_log(f"dashboard login | user={username}")
+        append_runtime_log(f"dashboard login | user=admin (via license)")
         return redirect("/")
-
-    pending = auth.get("pending", {}).get(username)
-    if pending:
-        token_plain = str(pending.get("token_plain") or "")
-        token_ok = (token_plain and hmac.compare_digest(password_trim, token_plain)) or verify_password(password_trim, pending.get("token_hash", {})) or verify_password(password_raw, pending.get("token_hash", {}))
-        if token_ok:
-            session.clear()
-            session["pending_setup_user"] = username
-            session[AUTH_LAST_ACTIVE_KEY] = time.time()
-            session.permanent = False
-            append_runtime_log(f"dashboard one-time login accepted | user={username}")
-            return redirect("/setup-password")
-
-    append_runtime_log(f"dashboard login failed | user={username or '-'}")
-    return render_frontend("login", "login_url", LOGIN_HTML, error="Неверный логин или пароль.", message=None, username=username), 401
-
-@app.route("/setup-password", methods=["GET", "POST"])
-def setup_password_route():
-    username = normalize_login(session.get("pending_setup_user", ""))
-    if not username: return redirect("/login")
-    auth = load_auth_state()
-    if username not in auth.get("pending", {}):
-        session.clear(); return redirect("/login")
-    if request.method == "GET":
-        return render_frontend("setup_password", "setup_url", SETUP_PASSWORD_HTML, username=username, error=None)
-    password = request.form.get("password", "")
-    password2 = request.form.get("password2", "")
-    if len(password) < 6:
-        return render_frontend("setup_password", "setup_url", SETUP_PASSWORD_HTML, username=username, error="Пароль должен быть минимум 6 символов."), 400
-    if password != password2:
-        return render_frontend("setup_password", "setup_url", SETUP_PASSWORD_HTML, username=username, error="Пароли не совпадают."), 400
-    auth.setdefault("users", {})[username] = {"password": hash_password(password), "created_at": datetime.utcnow().isoformat() + "Z"}
-    auth.setdefault("pending", {}).pop(username, None)
-    save_auth_state(auth)
-    session.clear()
-    session[AUTH_SESSION_KEY] = username
-    session[AUTH_LAST_ACTIVE_KEY] = time.time()
-    session.permanent = False
-    append_runtime_log(f"dashboard password set | user={username}")
-    return redirect("/")
+    else:
+        append_runtime_log(f"dashboard login failed | invalid license key: {msg}")
+        return render_template_string(LOGIN_HTML, error=f"Ошибка лицензии: {msg}", message=None), 401
 
 @app.route("/logout", methods=["GET", "POST"])
 def logout_route():
     session.clear()
-    return redirect("/login?message=Вы вышли из dashboard")
+    return redirect("/auth?message=Вы вышли из dashboard")
 
 @app.route("/", methods=["GET"])
 def index():
@@ -5293,6 +5988,18 @@ def api_deleted_maps():
         return jsonify({"ok": False, "error": str(e), "items": out}), 500
     return jsonify({"ok": True, "items": out})
 
+@app.route("/api/debug_pool", methods=["GET"])
+def api_debug_pool():
+    out = []
+    try:
+        downloads_dir = Path(load_settings()["rustmaps"].get("downloads_dir") or BASE_DIR / "rustmaps_vote_pool").resolve()
+        for root, dirs, files in os.walk(downloads_dir):
+            for file in files:
+                out.append(os.path.join(root, file).replace(str(downloads_dir), ""))
+    except Exception as e:
+        return jsonify({"error": str(e)})
+    return jsonify({"files": out})
+
 def api_fill_pool():
     started = start_fill_pool()
     return jsonify({"ok": started, "message": "Запустил добивку пула." if started else "Генерация уже идёт."})
@@ -5411,7 +6118,7 @@ def api_action():
             run_discord_coro(send_smm_post_direct(day_name, smm_cfg))
             return jsonify({"ok": True, "message": f"Тестовый анонс для {day_name} отправлен!"})
         if action == "publish_vote":
-            ok, msg = can_publish_vote_now()
+            ok, msg = can_publish_vote_now(ignore_consumed_window=True)
             if not ok:
                 return jsonify({"ok": False, "message": msg})
             result = run_discord_coro(_publish_vote_from_dashboard())
@@ -5419,7 +6126,7 @@ def api_action():
                 ok2, msg2 = result
                 return jsonify({"ok": ok2, "message": msg2})
             return jsonify({"ok": True, "message": "Vote publish requested"})
-        if action == "close_vote":
+        if action in ("close_vote", "cancel_vote"):
             run_discord_coro(_close_vote_from_dashboard())
             return jsonify({"ok": True, "message": "Vote close requested"})
         if action == "refresh_status":
@@ -5471,6 +6178,13 @@ def api_action():
 
 
 async def _publish_vote_from_dashboard():
+    # Clear consumed window and last vote target so manual publish always works
+    state = reconcile_pool_state()
+    if state.get("vote_window_consumed_target_at") or state.get("last_vote_target_at"):
+        state["vote_window_consumed_target_at"] = None
+        state["last_vote_target_at"] = None
+        save_json(POOL_STATE_FILE, state)
+
     # publish_vote() already owns VOTE_PUBLISH_LOCK and target de-duplication.
     # Do not lock here, otherwise manual dashboard publishing deadlocks itself
     # and can return 500 / "coroutine was never awaited" in failure paths.
@@ -5479,7 +6193,7 @@ async def _publish_vote_from_dashboard():
 
 async def _close_vote_from_dashboard():
     channel = await _get_discord_channel()
-    return await cancel_active_vote(channel, reason="dashboard_close", consume_window=True, restore_candidates=True)
+    return await cancel_active_vote(channel, reason="dashboard_close", consume_window=False, restore_candidates=True)
 
 async def _wipe_selected_from_dashboard():
     channel = await _get_discord_channel()
@@ -5608,15 +6322,29 @@ def reset_transient_state_on_boot() -> None:
 if __name__ == "__main__":
     if not SETTINGS_FILE.exists():
         save_settings(DEFAULT_SETTINGS)
+        
+    # License Verification
+    current_settings = load_settings()
+    lic_key = current_settings.get("license", {}).get("key", "")
+    success, msg = verify_license(lic_key)
+    
+    if success:
+        LICENSE_VALID = True
+    else:
+        log.warning(f"Startup license check failed: {msg}. Web UI will require license input.")
+        LICENSE_VALID = False
+    
     reset_transient_state_on_boot()
     if not GEN_STATUS_FILE.exists():
         update_gen_status(running=False, stage="idle", message="Ожидание")
     if not RUNTIME_STATUS_FILE.exists():
         update_runtime_status(discord_ready=False, worker_running=False, message="Ожидание", last_action="init")
-    rebuild_scheduler()
+        
+    if LICENSE_VALID:
+        rebuild_scheduler()
+        start_discord_background()
+        
     start_admin_console_thread()
-    # Start discord background if configured
-    start_discord_background()
     port = int(os.getenv("SERVER_PORT", "2973"))
     log.info("Starting dashboard on port %s", port)
     cert_path = Path("/home/container/dashboard_data/cert.pem")
