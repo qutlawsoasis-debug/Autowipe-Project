@@ -62,10 +62,10 @@ export function VoteTab({
             
             return (
               <div
-                key={v.seed || index}
-                className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40"
+                key={v.seed}
+                className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40"
               >
-                <div className="relative w-full h-48 shrink-0 overflow-hidden rounded-md border border-border bg-black flex items-center justify-center">
+                <div className="relative w-full h-64 shrink-0 overflow-hidden rounded-md border border-border bg-black flex items-center justify-center">
                   {preview ? (
                     <img
                       src={preview}
